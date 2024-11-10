@@ -70,6 +70,11 @@ public:
         return true;
     }
 
+    // Inequality operator
+    bool operator!=(const DSString& other) const {
+        return !(*this == other);
+    }
+
     // Less-than operator for sorting
     bool operator<(const DSString& other) const {
         size_t minLen = (len < other.len) ? len : other.len;
@@ -190,6 +195,7 @@ private:
 
     // Helper functions
     void loadStopWords(); // Load a predefined set of stop words
+    DSString stem(const DSString& word); // Simple stemmer
     void tokenize(const DSString& tweet, std::vector<DSString>& words);
     DSString toLower(const DSString& word);
 };
@@ -202,13 +208,36 @@ void SentimentClassifier::loadStopWords() {
         "for", "if", "in", "into", "is", "it",
         "no", "not", "of", "on", "or", "such",
         "that", "the", "their", "then", "there", "these",
-        "they", "this", "to", "was", "will", "with"
+        "they", "this", "to", "was", "will", "with",
+        "have", "has", "had", "do", "does", "did",
+        "from", "up", "down", "out", "about", "above", "below",
+        "under", "again", "further", "once", "here",
+        "there", "when", "where", "why", "how", "all", "any",
+        "both", "each", "few", "more", "most", "other", "some",
+        "only", "own", "same", "so", "than", "too",
+        "very", "can", "will", "just", "don't", "should", "now"
     };
 
     for (const auto& word : stopWordsList) {
         DSString dsWord(word.c_str());
         stopWords.insert(dsWord);
     }
+}
+
+// Simple stemmer: removes common suffixes
+DSString SentimentClassifier::stem(const DSString& word) {
+    std::string w = word.c_str();
+    // Simple suffix stripping
+    if (w.length() > 4 && w.substr(w.length() - 3) == "ing") {
+        w = w.substr(0, w.length() - 3);
+    }
+    else if (w.length() > 3 && w.substr(w.length() - 2) == "ed") {
+        w = w.substr(0, w.length() - 2);
+    }
+    else if (w.length() > 1 && w.back() == 's') {
+        w.pop_back();
+    }
+    return DSString(w.c_str());
 }
 
 // Convert DSString to lowercase
@@ -230,7 +259,10 @@ void SentimentClassifier::tokenize(const DSString& tweet, std::vector<DSString>&
         word.erase(std::remove_if(word.begin(), word.end(), ::ispunct), word.end());
         if (word.empty())
             continue;
-        DSString dsWord(word.c_str());
+
+        // Apply stemming
+        DSString dsWord = stem(DSString(word.c_str()));
+        
         if (stopWords.find(dsWord) == stopWords.end()) { // If not a stop word
             words.emplace_back(dsWord);
         }
@@ -429,7 +461,7 @@ void SentimentClassifier::evaluatePredictions(const std::string& groundTruthFile
 
     // Write misclassifications
     for (const auto& mis : misclassifications) {
-        accuracyOut << std::get<0>(mis) << ", " << std::get<2>(mis) << std::endl;
+        accuracyOut << std::get<0>(mis) << ", " << std::get<1>(mis) << ", " << std::get<2>(mis) << std::endl;
     }
 
     accuracyOut.close();
